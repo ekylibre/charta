@@ -1,6 +1,8 @@
 # Gathers geomatic calculations
 # Completes RGeo
 require 'rgeo'
+require 'charta/coordinates'
+require 'charta/ewkt_serializer'
 require 'charta/geometry'
 require 'charta/geometry_collection'
 require 'charta/point'
