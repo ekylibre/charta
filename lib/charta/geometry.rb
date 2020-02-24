@@ -43,6 +43,7 @@ module Charta
     def to_text
       feature.as_text.match(/\ASRID=.*;(.*)/)[1]
     end
+
     alias as_text to_text
     alias to_wkt to_text
 
@@ -50,6 +51,7 @@ module Charta
     def to_ewkt
       Charta.generate_ewkt(feature).to_s
     end
+
     alias to_s to_ewkt
 
     def ewkt
@@ -62,6 +64,7 @@ module Charta
       generator = RGeo::WKRep::WKBGenerator.new(tag_format: :ewkbt, emit_ewkbt_srid: true)
       generator.generate(feature)
     end
+
     alias to_ewkb to_binary
 
     # Pas bien compris le fonctionnement
@@ -85,6 +88,7 @@ module Charta
     def to_geojson
       to_json_object.to_json
     end
+
     alias to_json to_geojson
 
     # Returns object in JSON (Hash)
@@ -110,12 +114,24 @@ module Charta
 
     # Returns true if Geometry is a Surface
     def surface?
-      [RGeo::Feature::Polygon, RGeo::Feature::MultiPolygon].include? feature.geometry_type
+      if collection?
+        feature.any? { |geometry| Charta.new_geometry(geometry).surface? }
+      else
+        [RGeo::Feature::Polygon, RGeo::Feature::MultiPolygon].include? feature.geometry_type
+      end
     end
 
     # Returns area in unit corresponding to the SRS
     def area
-      surface? ? feature.area : 0
+      if surface?
+        if collection?
+          feature.sum { |geometry| Charta.new_geometry(geometry).area }
+        else
+          feature.area
+        end
+      else
+        0
+      end
     end
 
     # Returns true if this Geometry is an empty geometrycollection, polygon,
@@ -123,6 +139,7 @@ module Charta
     def empty?
       feature.is_empty?
     end
+
     alias blank? empty?
 
     # Computes the geometric center of a geometry, or equivalently, the center
@@ -142,10 +159,16 @@ module Charta
 
     def convert_to(new_type)
       case new_type
-      when type then self
-      when :multi_point then flatten_multi(:point)
-      when :multi_line_string then flatten_multi(:line_string)
-      when :multi_polygon then flatten_multi(:polygon)
+        when type then
+          self
+        when :multi_point then
+          flatten_multi(:point)
+        when :multi_line_string then
+          flatten_multi(:line_string)
+        when :multi_polygon then
+          flatten_multi(:polygon)
+        else
+          self
       end
     end
 
@@ -196,6 +219,7 @@ module Charta
       other_geometry = Charta.new_geometry(other).transform(srid)
       feature.union(other_geometry.feature)
     end
+
     alias + merge
 
     def intersection(other)
@@ -203,10 +227,16 @@ module Charta
       feature.intersection(other_geometry.feature)
     end
 
+    def intersects?(other)
+      other_geometry = Charta.new_geometry(other).transform(srid)
+      feature.intersects?(other_geometry.feature)
+    end
+
     def difference(other)
       other_geometry = Charta.new_geometry(other).transform(srid)
       feature.difference(other_geometry.feature)
     end
+
     alias - difference
 
     def bounding_box
@@ -288,52 +318,52 @@ module Charta
 
       private
 
-      def geos_factory(srid)
-        RGeo::Geos.factory(
-          srid: srid,
-          wkt_generator: {
-            type_format: :ewkt,
-            emit_ewkt_srid: true,
-            convert_case: :upper
-          },
-          wkt_parser: {
-            support_ewkt: true
-          },
-          wkb_generator:  {
-            type_format: :ewkb,
-            emit_ewkb_srid: true,
-            hex_format: true
-          },
-          wkb_parser: {
-            support_ewkb: true
-          }
-        )
-      end
+        def geos_factory(srid)
+          RGeo::Geos.factory(
+            srid: srid,
+            wkt_generator: {
+              type_format: :ewkt,
+              emit_ewkt_srid: true,
+              convert_case: :upper
+            },
+            wkt_parser: {
+              support_ewkt: true
+            },
+            wkb_generator: {
+              type_format: :ewkb,
+              emit_ewkb_srid: true,
+              hex_format: true
+            },
+            wkb_parser: {
+              support_ewkb: true
+            }
+          )
+        end
 
-      def projected_factory(srid)
-        proj4 = '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
-        RGeo::Geographic.projected_factory(
-          srid: srid,
-          wkt_generator: {
-            type_format: :ewkt,
-            emit_ewkt_srid: true,
-            convert_case: :upper
-          },
-          wkt_parser: {
-            support_ewkt: true
-          },
-          wkb_generator:  {
-            type_format: :ewkb,
-            emit_ewkb_srid: true,
-            hex_format: true
-          },
-          wkb_parser: {
-            support_ewkb: true
-          },
-          projection_srid: 6933,
-          projection_proj4: proj4
-        )
-      end
+        def projected_factory(srid)
+          proj4 = '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
+          RGeo::Geographic.projected_factory(
+            srid: srid,
+            wkt_generator: {
+              type_format: :ewkt,
+              emit_ewkt_srid: true,
+              convert_case: :upper
+            },
+            wkt_parser: {
+              support_ewkt: true
+            },
+            wkb_generator: {
+              type_format: :ewkb,
+              emit_ewkb_srid: true,
+              hex_format: true
+            },
+            wkb_parser: {
+              support_ewkb: true
+            },
+            projection_srid: 6933,
+            projection_proj4: proj4
+          )
+        end
     end
   end
 end
