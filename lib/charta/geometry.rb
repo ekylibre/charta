@@ -224,7 +224,8 @@ module Charta
 
     def intersection(other)
       other_geometry = Charta.new_geometry(other).transform(srid)
-      feature.intersection(other_geometry.feature)
+
+      Charta.new_geometry(feature.intersection(other_geometry.feature))
     end
 
     def intersects?(other)

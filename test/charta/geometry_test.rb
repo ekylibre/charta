@@ -173,6 +173,26 @@ module Charta
       end
     end
 
+    def test_intersection
+      geom1 = Charta.new_geometry('SRID=4326;POLYGON((0 0, 0 2, 1 2, 1 0, 0 0))')
+      geom2 = Charta.new_geometry('SRID=4326;POLYGON((0 1, 0 3, 1 3, 1 1, 0 1))')
+      expected_coordinates = [[0, 1], [0, 2], [1, 2], [1, 1], [0, 1]]
+
+      assert(geom1.intersects?(geom2))
+
+      inter = geom1.intersection(geom2)
+
+      assert(inter.is_a?(Charta::Geometry))
+
+      json = JSON.load(inter.to_json)
+      json.fetch("coordinates").first.each_with_index do |(a, b), i|
+        expected_a, expected_b = expected_coordinates[i]
+
+        assert_in_delta(expected_a, a, 10e-9)
+        assert_in_delta(expected_b, b, 10e-9)
+      end
+    end
+
     def test_class_cast
       samples = {
         'Point' => 'POINT(6 10)',
@@ -312,7 +332,7 @@ module Charta
 !ruby/object:Charta::MultiPolygon
 ewkt: SRID=4326;MULTIPOLYGON(((1.64468269737984 49.4801478441764,1.64465846208501 49.4800879855142,1.64451455635114 49.4798795855698,1.64434333980203 49.4795066520487,1.64349432130535 49.4777636867183,1.64310806699683 49.47696228419,1.64329247554595 49.4769248156496,1.64577012185865 49.4763689056835,1.64593430444977 49.4767522589754,1.6468489005132 49.4785456945119,1.6468506318855 49.478549102676,1.64679688540217 49.4785941662853,1.64635829118453 49.4788544052356,1.64622114404453 49.4789337375618,1.64605021476746 49.4789997404691,1.64572298526764 49.4792123497544,1.6454403726604 49.4794945421142,1.64515435695648 49.4797246994857,1.64488613605499 49.479975644337,1.64468269737984 49.4801478441764)))
 options: {}
-YAML
+      YAML
       object = YAML.safe_load(yaml, ['Charta::MultiPolygon'])
 
       object2 = YAML.safe_load(object.to_yaml, ['Charta::MultiPolygon'])
