@@ -30,7 +30,7 @@ module Charta
         if coordinates.is_a?(Charta::Geometry)
           coordinates
         elsif coordinates.is_a?(RGeo::Feature::Instance)
-          Geometry.feature(coordinates)
+          new_feature(Charta.generate_ewkt(coordinates))
         elsif coordinates.to_s =~ /\A[[:space:]]*\z/
           empty_feature(srs)
         else
