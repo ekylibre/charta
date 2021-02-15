@@ -6,8 +6,11 @@ require 'active_support/core_ext/module/delegation'
 module Charta
   # Represents a Geometry with SRID
   class Geometry
+    # @param [RGeo::Feature::Geometry] feature
     def initialize(feature, properties = {})
-      self.feature = feature
+      raise ArgumentError.new("Feature can't be nil") if feature.nil?
+
+      @feature = feature
       @properties = properties
     end
 
@@ -17,6 +20,8 @@ module Charta
 
     # Returns the type of the geometry as a string. Example: point,
     # multi_polygon, geometry_collection...
+    #
+    # @return [Symbol]
     def type
       Charta.underscore(feature.geometry_type.type_name).to_sym
     end
@@ -25,17 +30,23 @@ module Charta
     # 'ST_MultiPolygon' etc. This function differs from GeometryType(geometry)
     # in the case of the string and ST in front that is returned, as well as the fact
     # that it will not indicate whether the geometry is measured.
+    #
+    # @return [Boolean]
     def collection?
       feature.geometry_type == RGeo::Feature::GeometryCollection
     end
 
     # Return the spatial reference identifier for the ST_Geometry
+    #
+    # @return [Numeric]
     def srid
       feature.srid.to_i
     end
 
     # Returns the Well-Known Text (WKT) representation of the geometry/geography
     # without SRID metadata
+    #
+    # @return [String]
     def to_text
       feature.as_text.match(/\ASRID=.*;(.*)/)[1]
     end
@@ -51,7 +62,8 @@ module Charta
     alias to_s to_ewkt
 
     def ewkt
-      puts 'DEPRECATION WARNING: Charta::Geometry.ewkt is deprecated. Please use Charta::Geometry.to_ewkt instead'
+      ActiveSupport::Deprecation.warn('Charta::Geometry.ewkt is deprecated. Please use Charta::Geometry.to_ewkt instead')
+
       to_ewkt
     end
 
@@ -206,7 +218,7 @@ module Charta
         database.get(srid).proj4,
         feature,
         new_proj_entry.proj4,
-        self.class.factory(new_srid)
+        Factory::EwktFeatureBuilder.factory_for(new_srid)
       )
       generator = RGeo::WKRep::WKTGenerator.new(tag_format: :ewkt, emit_ewkt_srid: true)
       Charta.new_geometry(generator.generate(new_feature))
@@ -267,7 +279,7 @@ module Charta
     def feature
       unless defined? @feature
         if defined? @ewkt
-          @feature = ::Charta::Geometry.from_ewkt(@ewkt)
+          @feature = ::Charta.new_geometry(@ewkt).feature
           @properties = @options.dup if @options
         else
           raise StandardError.new('Invalid geometry (no feature, no EWKT)')
@@ -309,82 +321,30 @@ module Charta
       end
 
       def factory(srid = 4326)
-        return projected_factory(srid) if srid.to_i == 4326
+        ActiveSupport::Deprecation.warn('Use Factory::EwktFeatureBuilder.factory_for')
 
-        geos_factory(srid)
+        Factory::EwktFeatureBuilder.factory_for(srid)
       end
 
+      # @return [RGeo::Feature]
       def feature(ewkt_or_rgeo)
-        return from_rgeo(ewkt_or_rgeo) if ewkt_or_rgeo.is_a? RGeo::Feature::Instance
+        ActiveSupport::Deprecation.warn('Charta::Geometry.feature is deprecated. Charta.new_geometry should be used instead.')
 
-        from_ewkt(ewkt_or_rgeo)
+        Charta.new_feature(ewkt_or_rgeo)
       end
 
       def from_rgeo(rgeo)
-        srid = rgeo.srid
-        RGeo::Feature.cast(rgeo, factory: Geometry.factory(srid))
+        ActiveSupport::Deprecation.warn('Charta::Geometry.from_rgeo is deprecated and will be removed in 0.4. Use Charta.new_geometry instead.')
+
+        Charta.new_feature(rgeo)
       end
 
       def from_ewkt(ewkt)
-        # Cleans empty geometries
-        ewkt = ewkt.gsub(/(GEOMETRYCOLLECTION|GEOMETRY|((MULTI)?(POINT|LINESTRING|POLYGON)))\(\)/, '\1 EMPTY')
-        srs = ewkt.split(/[\=\;]+/)[0..1]
-        srid = nil
-        srid = srs[1] if srs[0] =~ /srid/i
-        srid ||= 4326
-        factory(srid).parse_wkt(ewkt)
-      rescue RGeo::Error::ParseError => e
-        raise "Invalid EWKT (#{e.class.name}: #{e.message}): #{ewkt}"
+        ActiveSupport::Deprecation.warn('Use Charta.new_geometry().feature')
+
+        Charta.new_geometry(ewkt).feature
       end
 
-      private
-
-        def geos_factory(srid)
-          RGeo::Geos.factory(
-            srid: srid,
-            wkt_generator: {
-              type_format: :ewkt,
-              emit_ewkt_srid: true,
-              convert_case: :upper
-            },
-            wkt_parser: {
-              support_ewkt: true
-            },
-            wkb_generator: {
-              type_format: :ewkb,
-              emit_ewkb_srid: true,
-              hex_format: true
-            },
-            wkb_parser: {
-              support_ewkb: true
-            }
-          )
-        end
-
-        def projected_factory(srid)
-          proj4 = '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
-          RGeo::Geographic.projected_factory(
-            srid: srid,
-            wkt_generator: {
-              type_format: :ewkt,
-              emit_ewkt_srid: true,
-              convert_case: :upper
-            },
-            wkt_parser: {
-              support_ewkt: true
-            },
-            wkb_generator: {
-              type_format: :ewkb,
-              emit_ewkb_srid: true,
-              hex_format: true
-            },
-            wkb_parser: {
-              support_ewkb: true
-            },
-            projection_srid: 6933,
-            projection_proj4: proj4
-          )
-        end
     end
   end
 end

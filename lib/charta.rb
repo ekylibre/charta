@@ -1,5 +1,6 @@
 # Gathers geomatic calculations
 # Completes RGeo
+require 'active_support/deprecation'
 require 'bigdecimal'
 require 'bigdecimal/util'
 require 'rgeo'

@@ -27,10 +27,8 @@ module Charta
       end
 
       def new_feature(coordinates, srs: nil, format: nil)
-        if coordinates.is_a?(Charta::Geometry)
+        if coordinates.is_a?(Charta::Geometry) || coordinates.is_a?(RGeo::Feature::Instance)
           coordinates
-        elsif coordinates.is_a?(RGeo::Feature::Instance)
-          Geometry.feature(coordinates)
         elsif coordinates.to_s =~ /\A[[:space:]]*\z/
           empty_feature(srs)
         else
