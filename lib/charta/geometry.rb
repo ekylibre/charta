@@ -238,10 +238,13 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
 
       raise "Cannot find proj for SRID: #{new_srid}" if new_srid.nil?
 
+      from_srid = RGeo::CoordSys::Proj4.new(srid.to_i)
+      to_srid = RGeo::CoordSys::Proj4.new(new_srid.to_i)
+
       new_feature = RGeo::CoordSys::Proj4.transform(
-        srid,
+        from_srid,
         feature,
-        new_srid,
+        to_srid,
         self.class.factory(new_srid)
       )
       generator = RGeo::WKRep::WKTGenerator.new(tag_format: :ewkt, emit_ewkt_srid: true)
