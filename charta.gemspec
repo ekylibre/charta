@@ -15,12 +15,12 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'activesupport', '~> 5.0'
+  spec.add_dependency 'activesupport', '~> 5.2'
   spec.add_dependency 'json', '>= 1.8.0'
   spec.add_dependency 'nokogiri', '>= 1.7.0'
-  spec.add_dependency 'rgeo', '~> 2.0'
-  spec.add_dependency 'rgeo-geojson', '~> 2.0'
-  spec.add_dependency 'rgeo-proj4', '~> 2.0'
+  spec.add_dependency 'rgeo', '~> 3.0'
+  spec.add_dependency 'rgeo-geojson'
+  spec.add_dependency 'rgeo-proj4'
   spec.add_dependency 'victor', '~> 0.3.3'
   spec.add_dependency 'zeitwerk', '~> 2.4.0'
 

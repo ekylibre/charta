@@ -22,6 +22,22 @@ module Charta
       Charta.underscore(feature.geometry_type.type_name).to_sym
     end
 
+    # Generates a simpler geometry.
+    # see ST_SimplifyPreserveTopology on http://revenant.ca/www/postgis/workshop/advanced.html#processing-functions
+
+    # @param [Float] tolerance
+    # @return [Charta::Geometry]
+    def simplify(tolerance)
+      sql = <<-SQL
+        SELECT ST_AsText(
+                 ST_SimplifyPreserveTopology(ST_GeomFromText(:feature), :tolerance )
+               ) AS simplfied_shape
+      SQL
+      query = ActiveRecord::Base.send(:sanitize_sql_array, [sql, feature: feature.as_text, tolerance: tolerance ])
+      simplfied_shape_text = ActiveRecord::Base.connection.execute(query).first['simplfied_shape']
+      Charta.new_geometry(simplfied_shape_text)
+    end
+
     # Returns the type of the geometry as a string. EG: 'ST_Linestring', 'ST_Polygon',
     # 'ST_MultiPolygon' etc. This function differs from GeometryType(geometry)
     # in the case of the string and ST in front that is returned, as well as the fact
@@ -219,14 +235,13 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
       raise 'Proj is not supported. Cannot tranform' unless RGeo::CoordSys::Proj4.supported?
 
       new_srid = Charta::SRS[new_srid] || new_srid
-      database = self.class.srs_database
-      new_proj_entry = database.get(new_srid)
-      raise "Cannot find proj for SRID: #{new_srid}" if new_proj_entry.nil?
+
+      raise "Cannot find proj for SRID: #{new_srid}" if new_srid.nil?
 
       new_feature = RGeo::CoordSys::Proj4.transform(
-        database.get(srid).proj4,
+        srid,
         feature,
-        new_proj_entry.proj4,
+        new_srid,
         self.class.factory(new_srid)
       )
       generator = RGeo::WKRep::WKTGenerator.new(tag_format: :ewkt, emit_ewkt_srid: true)
@@ -325,14 +340,9 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
     end
 
     class << self
-      def srs_database
-        @srs_database ||= RGeo::CoordSys::SRSDatabase::Proj4Data.new('epsg', authority: 'EPSG', cache: true)
-      end
-
-      def factory(srid = 4326, uses_lenient_assertions = true)
+      def factory(srid = 4326)
         if srid.to_i == 4326
           factory = projected_factory(srid)
-          factory.set_property(:uses_lenient_assertions, true) if uses_lenient_assertions && factory.respond_to?(:set_property)
         else
           factory = geos_factory(srid)
         end
