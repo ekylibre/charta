@@ -219,16 +219,14 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
       raise 'Proj is not supported. Cannot tranform' unless RGeo::CoordSys::Proj4.supported?
 
       new_srid = Charta::SRS[new_srid] || new_srid
-      database = self.class.srs_database
-      new_proj_entry = database.get(new_srid)
-      raise "Cannot find proj for SRID: #{new_srid}" if new_proj_entry.nil?
 
-      new_feature = RGeo::CoordSys::Proj4.transform(
-        database.get(srid).proj4,
-        feature,
-        new_proj_entry.proj4,
-        self.class.factory(new_srid)
-      )
+      coord_sys = RGeo::CoordSys::Proj4.create("EPSG:#{srid}")
+      new_coord_sys = RGeo::CoordSys::Proj4.create("EPSG:#{new_srid}")
+
+      new_feature = RGeo::CoordSys::CRSToCRS
+        .create(coord_sys, new_coord_sys)
+        .transform(feature, self.class.factory(new_srid))
+
       generator = RGeo::WKRep::WKTGenerator.new(tag_format: :ewkt, emit_ewkt_srid: true)
       Charta.new_geometry(generator.generate(new_feature))
     end
@@ -325,10 +323,6 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
     end
 
     class << self
-      def srs_database
-        @srs_database ||= RGeo::CoordSys::SRSDatabase::Proj4Data.new('epsg', authority: 'EPSG', cache: true)
-      end
-
       def factory(srid = 4326, uses_lenient_assertions = true)
         if srid.to_i == 4326
           factory = projected_factory(srid)
@@ -388,7 +382,6 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
         end
 
         def projected_factory(srid)
-          proj4 = '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
           RGeo::Geographic.projected_factory(
             srid: srid,
             wkt_generator: {
@@ -407,8 +400,7 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
             wkb_parser: {
               support_ewkb: true
             },
-            projection_srid: 6933,
-            projection_proj4: proj4
+            projection_proj4: "EPSG:6933"
           )
         end
     end

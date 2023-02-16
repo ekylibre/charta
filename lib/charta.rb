@@ -6,7 +6,7 @@ require 'rgeo'
 require 'rgeo/proj4'
 require 'zeitwerk'
 
-loader = Zeitwerk::Loader.for_gem
+loader = Zeitwerk::Loader.for_gem # Zeitwerk 2.6+ (warn_on_extra_files: false)
 loader.inflector.inflect(
   'geo_json' => 'GeoJSON',
   'gml' => 'GML',
