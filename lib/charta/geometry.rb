@@ -400,7 +400,7 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
             wkb_parser: {
               support_ewkb: true
             },
-            projection_proj4: "EPSG:6933"
+            projection_proj4: 'EPSG:6933'
           )
         end
     end
