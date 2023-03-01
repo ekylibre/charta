@@ -19,7 +19,7 @@ rubocop:
 test:
   image: registry.gitlab.com/ekylibre/docker-base-images/ruby2.6:1
   before_script:
-    - apt install libproj-dev
+    - apt-get install -y libproj-dev
     - gem install bundler
     - bundle install --path vendor/bundle
   cache:
