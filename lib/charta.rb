@@ -55,6 +55,24 @@ module Charta
       Point.new(feature)
     end
 
+    # coordinates is an array of x,y
+    # make for Traccar
+    def make_polygon(coordinates, options = {})
+      options[:swap] ||= false
+      options[:srid] ||= 4326
+
+      points_coordinates = coordinates.map do |x, y|
+        if options[:swap]
+          "#{y} #{x}"
+        else
+          "#{x} #{y}"
+        end
+      end
+
+      ewkt = "SRID=#{options[:srid]};POLYGON((#{points_coordinates.join(', ')}))"
+      new_geometry(ewkt)
+    end
+
     def make_line(points, options = {})
       options[:srid] ||= new_geometry(points.first).srid if points.any?
       options[:srid] ||= 4326
