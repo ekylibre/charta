@@ -15,7 +15,10 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'activesupport', '~> 5.0'
+  # Borne relâchée pour la montée (lot B.2 du plan v6 d'Ekylibre).
+  # Couplage mesuré avant : 1 738 lignes, zéro référence aux internes de Rails
+  # — le seul lien est un `require 'active_support/core_ext'`.
+  spec.add_dependency 'activesupport', '>= 5.0', '< 9'
   spec.add_dependency 'json', '>= 1.8.0'
   spec.add_dependency 'nokogiri', '>= 1.7.0'
   spec.add_dependency 'rgeo', '~> 2.0'
