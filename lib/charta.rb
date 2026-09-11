@@ -10,7 +10,11 @@ loader = Zeitwerk::Loader.for_gem
 loader.inflector.inflect(
   'geo_json' => 'GeoJSON',
   'gml' => 'GML',
-  'kml' => 'KML'
+  'kml' => 'KML',
+  # lib/rgeo/svg.rb complète RGeo et définit RGeo::SVG : sans ces deux
+  # inflexions, le chargeur attend de ce chemin `Rgeo::Svg`.
+  'rgeo' => 'RGeo',
+  'svg' => 'SVG'
 )
 loader.setup
 
