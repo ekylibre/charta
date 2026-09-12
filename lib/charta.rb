@@ -10,13 +10,16 @@ loader = Zeitwerk::Loader.for_gem
 loader.inflector.inflect(
   'geo_json' => 'GeoJSON',
   'gml' => 'GML',
-  'kml' => 'KML',
-  # lib/rgeo/svg.rb complète RGeo et définit RGeo::SVG : sans ces deux
-  # inflexions, le chargeur attend de ce chemin `Rgeo::Svg`.
-  'rgeo' => 'RGeo',
-  'svg' => 'SVG'
+  'kml' => 'KML'
 )
+# `lib/rgeo/svg.rb` complète RGeo, dont la gem a déjà défini l'espace de noms au
+# `require` ci-dessus : Zeitwerk 2.8 avertit dès qu'un répertoire géré porte le
+# nom d'une constante déjà posée ailleurs. Ce fichier n'est donc pas confié au
+# chargeur mais requis directement.
+loader.ignore("#{__dir__}/rgeo")
 loader.setup
+
+require_relative 'rgeo/svg'
 
 unless RGeo::CoordSys::Proj4.supported?
   puts "Proj4 is not supported. Some actions won't work"
