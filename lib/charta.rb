@@ -20,6 +20,7 @@ loader.ignore("#{__dir__}/rgeo")
 loader.setup
 
 require_relative 'rgeo/svg'
+require_relative 'rgeo/geos_unsafe_aliases'
 
 unless RGeo::CoordSys::Proj4.supported?
   puts "Proj4 is not supported. Some actions won't work"
