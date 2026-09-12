@@ -167,6 +167,12 @@ module Charta
             end
           end
           geom1.merge(geom2)
+          # GEOS ne définit pas les opérations d'ensemble sur une collection
+          # hétérogène : depuis la 3.13 il lève « Should never reach here » là
+          # où la 3.9 rendait un résultat arbitraire. On ne les exerce donc que
+          # sur des géométries simples.
+          next if geom1.collection? || geom2.collection?
+
           geom1.intersection(geom2)
           geom1.difference(geom2)
         end

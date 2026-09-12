@@ -219,14 +219,19 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
       raise 'Proj is not supported. Cannot tranform' unless RGeo::CoordSys::Proj4.supported?
 
       new_srid = Charta::SRS[new_srid] || new_srid
-      database = self.class.srs_database
-      new_proj_entry = database.get(new_srid)
-      raise "Cannot find proj for SRID: #{new_srid}" if new_proj_entry.nil?
+
+      # `RGeo::CoordSys::SRSDatabase::Proj4Data` a disparu avec rgeo 3, et elle
+      # lisait de toute façon le fichier `epsg` de PROJ.4, supprimé depuis
+      # PROJ 6. `Proj4.create` interroge directement `proj.db` à partir du code
+      # d'autorité.
+      from_proj = self.class.proj_for(srid)
+      new_proj = self.class.proj_for(new_srid)
+      raise "Cannot find proj for SRID: #{new_srid}" if new_proj.nil?
 
       new_feature = RGeo::CoordSys::Proj4.transform(
-        database.get(srid).proj4,
+        from_proj,
         feature,
-        new_proj_entry.proj4,
+        new_proj,
         self.class.factory(new_srid)
       )
       generator = RGeo::WKRep::WKTGenerator.new(tag_format: :ewkt, emit_ewkt_srid: true)
@@ -325,19 +330,28 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
     end
 
     class << self
-      def srs_database
-        @srs_database ||= RGeo::CoordSys::SRSDatabase::Proj4Data.new('epsg', authority: 'EPSG', cache: true)
+      # @param srid [Integer, String]
+      # @return [RGeo::CoordSys::Proj4, nil]
+      def proj_for(srid)
+        @proj_for ||= {}
+        @proj_for.fetch(srid.to_i) do
+          @proj_for[srid.to_i] = begin
+            RGeo::CoordSys::Proj4.create(srid.to_i)
+          rescue RGeo::Error::InvalidProjection
+            nil
+          end
+        end
       end
 
       def factory(srid = 4326, uses_lenient_assertions = true)
+        # `set_property` a disparu avec rgeo 3 : les propriétés d'une fabrique
+        # sont désormais fixées à sa construction. `uses_lenient_assertions`
+        # n'était de toute façon lu que par les fabriques GEOS.
         if srid.to_i == 4326
-          factory = projected_factory(srid)
-          factory.set_property(:uses_lenient_assertions, true) if uses_lenient_assertions && factory.respond_to?(:set_property)
+          projected_factory(srid, uses_lenient_assertions: uses_lenient_assertions)
         else
-          factory = geos_factory(srid)
+          geos_factory(srid)
         end
-
-        factory
       end
 
       def feature(ewkt_or_rgeo)
@@ -366,8 +380,46 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
       private
 
         def geos_factory(srid)
-          RGeo::Geos.factory(
+          RGeo::Geos.factory(srid: srid, **serialization_options)
+        end
+
+        # Cylindrique à aires égales (EPSG:6933), employée pour les calculs de
+        # surface : c'est la projection dans laquelle la fabrique géographique
+        # travaille.
+        #
+        # Le code d'autorité remplace la chaîne proj4 équivalente que portait
+        # l'ancienne version — « +proj=cea +lon_0=0 +lat_ts=30 … ». rgeo 3 exige
+        # un système de coordonnées *projeté*, et PROJ ne reconnaît comme tel
+        # qu'une définition issue de `proj.db` : une chaîne proj4 brute donne
+        # `projected? == false`. Le code était de toute façon déjà passé en
+        # parallèle, sous `projection_srid`.
+        PROJECTION_SRID = 6933
+
+        # rgeo 3 n'accepte plus `projection_srid` ni `projection_proj4` : la
+        # projection se donne par une fabrique construite à part, dont le
+        # système de coordonnées doit être projeté.
+        def projected_factory(srid, uses_lenient_assertions: true)
+          RGeo::Geographic.projected_factory(
             srid: srid,
+            projection_factory: projection_factory(uses_lenient_assertions: uses_lenient_assertions),
+            **serialization_options
+          )
+        end
+
+        def projection_factory(uses_lenient_assertions: true)
+          RGeo::Geos.factory(
+            srid: PROJECTION_SRID,
+            coord_sys: RGeo::CoordSys::Proj4.create(PROJECTION_SRID),
+            uses_lenient_assertions: uses_lenient_assertions,
+            **serialization_options
+          )
+        end
+
+        # Mêmes réglages de lecture et d'écriture pour toutes les fabriques :
+        # EWKT en sortie avec le SRID, EWKB hexadécimal, et acceptation des
+        # deux formes en entrée.
+        def serialization_options
+          {
             wkt_generator: {
               type_format: :ewkt,
               emit_ewkt_srid: true,
@@ -384,32 +436,7 @@ stroke_linejoin: options[:stroke_linejoin], stroke_width: options[:stroke_width]
             wkb_parser: {
               support_ewkb: true
             }
-          )
-        end
-
-        def projected_factory(srid)
-          proj4 = '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
-          RGeo::Geographic.projected_factory(
-            srid: srid,
-            wkt_generator: {
-              type_format: :ewkt,
-              emit_ewkt_srid: true,
-              convert_case: :upper
-            },
-            wkt_parser: {
-              support_ewkt: true
-            },
-            wkb_generator: {
-              type_format: :ewkb,
-              emit_ewkb_srid: true,
-              hex_format: true
-            },
-            wkb_parser: {
-              support_ewkb: true
-            },
-            projection_srid: 6933,
-            projection_proj4: proj4
-          )
+          }
         end
     end
   end
